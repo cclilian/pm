@@ -18,14 +18,55 @@
 | 后端 | FastAPI + SQLAlchemy 2.0 + Alembic + Pydantic v2 |
 | 数据库 | MySQL 8.x |
 
-## 项目结构（规划）
+## 项目结构
 
 ```
 pm/
 ├── frontend/          # Vue3 前端
 ├── backend/           # FastAPI 后端
-└── docker-compose.yml # 可选：一键启动
+├── docker-compose.yml # MySQL（可选）
+└── .cursor/           # Cursor 规则与计划
 ```
+
+## 快速开始
+
+### 1. 数据库
+
+使用本地 MySQL（默认 `root/123456`）或 Docker：
+
+```bash
+docker compose up -d
+```
+
+创建数据库（若尚未创建）：
+
+```sql
+CREATE DATABASE pm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 2. 后端
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+copy .env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API 文档：http://localhost:8000/docs
+
+### 3. 前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+访问：http://localhost:5173
 
 ## 详细规划
 
