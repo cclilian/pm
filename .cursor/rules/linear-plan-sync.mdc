@@ -1,0 +1,104 @@
+---
+description: 将 Markdown 计划（phase1/phase2）同步到 Linear 为 Todo 任务
+alwaysApply: true
+---
+
+# Markdown 计划 → Linear 同步
+
+## 配置（修改此处即可）
+
+```yaml
+project:
+  name: "pm"              # Linear Project 名称（同步时自动创建/关联）
+  team: "pm"              # Linear Team 名称或 ID
+plan:
+  glob: ".cursor/plans/**/*.md"   # 计划文件路径匹配
+  label: "plan-sync"      # 同步任务打的 Label（便于去重与识别）
+```
+
+---
+
+## 计划 Markdown 格式
+
+支持以下两种写法（可混用）：
+
+### 格式 A：Phase 标题 + 列表（推荐）
+
+```markdown
+# 项目名称
+
+## Phase 1
+- 初始化 Vue3 + FastAPI 脚手架
+- 实现用户认证（JWT）
+
+## Phase 2
+- 实现需求管理模块
+- 实现任务管理模块
+```
+
+也接受 `## phase1`、`## 阶段1` 等变体。
+
+### 格式 B：YAML frontmatter todos（Cursor Plan）
+
+```markdown
+---
+todos:
+  - id: phase1-scaffold
+    content: "Phase 1: 初始化脚手架"
+    status: pending
+---
+```
+
+---
+
+## 何时触发
+
+用户出现以下意图时执行同步（**必须**调用 Linear MCP，不要只描述）：
+
+- 「同步到 Linear」「sync plan」「更新 Linear 任务」
+- 「按计划创建任务」「把 plan 推到 Linear」
+- 用户指定了 `.cursor/plans/` 下的 markdown 文件并要求同步
+
+**不要**在用户仅讨论规划内容、未要求同步时自动创建大量 Issue。
+
+---
+
+## 同步流程
+
+1. **读配置**与目标 markdown 文件。
+2. **解析任务**：
+   - 格式 A：每个 `## Phase N` 下的 `-` 列表项 → 一条任务；标题 = `Phase N: <内容>`
+   - 格式 B：frontmatter 中每条 `todos[].content` → 一条任务；`id` 写入 description 便于去重
+3. **去重**：`list_issues`（team + query 标题关键词），或 description 中含 `plan-id: xxx` 则跳过创建。
+4. **确保 Project**：若 `project.name` 在 Linear 不存在，用 `save_project` 创建并关联 team。
+5. **创建 Issue**：对每条新任务调用 `save_issue`：
+   - `team`: 配置 team
+   - `project`: 配置 project.name
+   - `state`: **Todo**
+   - `title`: 任务标题
+   - `description`: 来源文件路径 + `plan-id: <id>`（格式 B）或 phase 信息
+   - `labels`: 含 `plan-sync`（若 label 不存在则省略，不阻断）
+6. **Phase 分组（可选）**：若用户要求「按 phase 分组」，先为每个 Phase 创建父 Issue（Todo），子任务设 `parentId`。
+7. **汇总回复**：
+
+```
+已同步 8 条任务到 Linear（pm / Todo）
+  新建: PM-2 ~ PM-9
+  跳过: 0（已存在）
+  计划文件: .cursor/plans/xxx.md
+```
+
+---
+
+## 与口语规则协作
+
+- 计划同步创建的任务，后续可用「开始做 xxx」更新状态（见 `linear-task-voice` 规则）。
+- 两处 `project.team` 请保持一致。
+
+---
+
+## 注意事项
+
+- 已 Done / Canceled 的 Issue **不要**因重新同步而改回 Todo。
+- 计划删除某条时，**不自动**删除 Linear Issue（避免误删）；可提示用户手动取消。
+- 大计划（>20 条）先列出摘要让用户确认再批量创建。
