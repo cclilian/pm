@@ -1,3 +1,4 @@
+# 在 WSL2 中启动：cd /mnt/d/.../pm && docker compose up -d
 services:
   mysql:
     image: mysql:8.0
@@ -5,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
-      MYSQL_DATABASE: pm
+      MYSQL_DATABASE: agile_pm
       MYSQL_CHARSET: utf8mb4
     ports:
       - "3306:3306"

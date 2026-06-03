@@ -24,24 +24,66 @@
 pm/
 ├── frontend/          # Vue3 前端
 ├── backend/           # FastAPI 后端
-├── docker-compose.yml # MySQL（可选）
+├── docker-compose.yml # MySQL（在 WSL2 中 docker compose up -d）
 └── .cursor/           # Cursor 规则与计划
 ```
 
 ## 快速开始
 
-### 1. 数据库
+### 1. 数据库（WSL2 Docker）
 
-使用本地 MySQL（默认 `root/123456`）或 Docker：
+MySQL 在 **WSL2 里用 Docker** 启动，不在 Windows 本机跑 Docker。
+
+**在 WSL2 终端中启动：**
 
 ```bash
+# 进入项目目录（Windows 路径挂载示例）
+cd /mnt/d/congchen-study/cursor-test/pm
 docker compose up -d
 ```
 
-创建数据库（若尚未创建）：
+确认容器运行：
+
+```bash
+docker ps   # 应看到 mysql，端口 0.0.0.0:3306->3306
+```
+
+数据库名：`agile_pm`（连接串见 `backend/.env.example`）
+
+**Windows 后端连 WSL2 里的 MySQL**
+
+后端在 Windows 跑、MySQL 在 WSL2 Docker 跑时，需让 Windows 能访问 `3306`：
+
+1. **推荐**：启用 WSL 镜像网络（Windows 11），编辑 `%USERPROFILE%\.wslconfig`：
+
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   localhostForwarding=true
+   ```
+
+   保存后执行 `wsl --shutdown`，再重新打开 WSL。之后 Windows 可用 `localhost:3306` 连接。
+
+2. **备选**：在 `backend/.env` 里把主机改为 WSL IP（重启 WSL 后可能变化）：
+
+   ```bash
+   wsl hostname -I   # 取第一个 IP
+   ```
+
+   ```env
+   DATABASE_URL=mysql+pymysql://root:123456@<WSL_IP>:3306/agile_pm
+   ```
+
+创建数据库（若容器内尚未创建）：
 
 ```sql
-CREATE DATABASE pm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE agile_pm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+在 WSL 内可验证连通：
+
+```bash
+docker exec mysql mysql -uroot -p123456 -e "SHOW DATABASES;"
 ```
 
 ### 2. 后端

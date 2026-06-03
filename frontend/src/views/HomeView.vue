@@ -21,7 +21,7 @@ onMounted(async () => {
   } catch {
     dbStatus.value = 'error'
     if (!errorMessage.value) {
-      errorMessage.value = '无法连接数据库，请确认 MySQL 已启动且已创建 pm 库。'
+      errorMessage.value = '无法连接数据库，请确认 MySQL 已启动且已创建 agile_pm 库。'
     }
   }
 })
