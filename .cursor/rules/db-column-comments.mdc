@@ -1,0 +1,81 @@
+---
+description: 新建或修改数据库表时，必须为表和所有字段添加中文备注（MySQL COMMENT）
+globs: backend/app/models/**/*.py,backend/alembic/versions/**/*.py
+alwaysApply: true
+---
+
+# 数据库字段备注规范
+
+新建表、新增字段或编写 Alembic 迁移时，**每个字段和整张表都必须有中文备注**，并同步写入 MySQL `COMMENT`（与 SQLAlchemy 模型的 `comment=` 保持一致）。
+
+## SQLAlchemy 模型
+
+1. **表备注**：在 `__table_args__` 中设置
+2. **字段备注**：每个 `mapped_column(...)` 必须带 `comment="..."`
+3. **Enum 字段**：备注中列出各枚举值含义
+4. **relationship 字段**：无需 comment（不映射到数据库列）
+
+```python
+# ✅ GOOD
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = {"comment": "系统用户表"}
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, comment="主键 ID")
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        comment="用户角色：pm=项目经理, dev=开发, test=测试",
+    )
+
+# ❌ BAD — 缺少 comment
+name: Mapped[str] = mapped_column(String(128), nullable=False)
+```
+
+## Alembic 迁移
+
+### 新建表（`op.create_table`）
+
+每个 `sa.Column` 必须带 `comment=`，建表语句末尾加表备注：
+
+```python
+op.create_table(
+    "tasks",
+    sa.Column("id", sa.Integer(), autoincrement=True, nullable=False, comment="主键 ID"),
+    sa.Column("title", sa.String(256), nullable=False, comment="任务标题"),
+    sa.PrimaryKeyConstraint("id"),
+    comment="任务表",
+)
+```
+
+### 修改已有表字段备注
+
+优先在模型中加 `comment=`，迁移里用 `ALTER TABLE ... MODIFY COLUMN ... COMMENT` 同步到数据库。
+
+若列被外键引用，先 `SET FOREIGN_KEY_CHECKS=0`，改完再 `SET FOREIGN_KEY_CHECKS=1`。
+
+```python
+op.execute("SET FOREIGN_KEY_CHECKS=0")
+op.execute(
+    "ALTER TABLE users MODIFY COLUMN username VARCHAR(64) NOT NULL "
+    "COMMENT '登录用户名，唯一'"
+)
+op.execute("SET FOREIGN_KEY_CHECKS=1")
+```
+
+## 备注文案要求
+
+- 使用**简体中文**，简短明确（一般 4–30 字）
+- 外键字段注明关联对象，如 `项目 ID`、`用户 ID`
+- 布尔/状态/枚举字段注明取值含义
+- 时间字段统一用 `创建时间`、`更新时间` 等
+- 模型与迁移中的备注**措辞一致**，避免两处描述不同
+
+## 自检清单
+
+提交前确认：
+
+- [ ] 每张新表有表级 comment
+- [ ] 每个数据库列有字段 comment（含 id、created_at 等）
+- [ ] 对应 Alembic 迁移已包含相同备注
+- [ ] Enum / 状态字段已说明各值含义

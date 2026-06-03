@@ -21,20 +21,25 @@ class ProjectStatus(str, enum.Enum):
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = {"comment": "项目表"}
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, comment="主键 ID")
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True, comment="项目名称")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="项目描述")
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True, comment="项目负责人用户 ID"
+    )
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ProjectStatus.ACTIVE,
+        comment="项目状态：active=进行中, archived=已归档",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         server_default=func.now(),
+        comment="创建时间",
     )
 
     owner: Mapped[User] = relationship(
