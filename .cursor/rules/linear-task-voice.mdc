@@ -1,0 +1,79 @@
+---
+description: 用日常口语管理 Linear 开发任务，自动更新状态并推荐 Git 分支
+alwaysApply: true
+---
+
+# 口语化任务管理（Linear + Git）
+
+## 配置（修改此处即可）
+
+```yaml
+project:
+  name: "pm"        # Linear 项目名称（可选，用于 list_issues 的 project 过滤）
+  team: "pm"        # Linear Team 名称或 ID
+branch:
+  prefix: ""        # 分支前缀，留空则使用 Linear 返回的 gitBranchName
+  fallback: "{team}-{id}-{slug}"  # gitBranchName 不可用时的命名模板
+```
+
+---
+
+## 何时触发
+
+用户用**日常口语**提到开发任务时，主动执行本规则，无需用户说「更新 Linear」。
+
+典型触发语：
+
+| 口语示例 | 意图 | Linear 状态 |
+|----------|------|-------------|
+| 开始做登录功能 / 开始搞登录 / 着手登录 | 开始开发 | In Progress |
+| 登录做完了 / 完成登录功能 / 登录搞定了 | 完成 | Done |
+| 取消登录功能 / 登录先不做了 | 取消 | Canceled |
+| 加个任务：登录功能 / 创建登录任务 | 新建 | Todo |
+| 登录先搁着 / 登录放回待办 | 暂停 | Backlog |
+
+关键词提取：去掉「开始、做、搞、着手、完成、搞定、取消、创建、任务、功能、先、了」等虚词，剩余核心词用于搜索（如「登录」）。
+
+---
+
+## 执行流程
+
+1. **读配置**：使用上方 `project.team`（及可选的 `project.name`）。
+2. **判断意图**：从上表匹配用户想做的操作；无法判断时询问一句。
+3. **搜索任务**：调用 Linear MCP `list_issues`，参数：
+   - `team`: 配置中的 team
+   - `query`: 提取的关键词
+   - 若配置了 `project.name`，加 `project` 过滤
+4. **消歧**：
+   - 0 条 → 询问是否 `save_issue` 新建（state=Todo）
+   - 1 条 → 直接操作
+   - 多条 → 列出标题与编号（如 PM-1），请用户确认
+5. **更新状态**：调用 `save_issue`，设置 `id` + `state`（开始→`In Progress`，完成→`Done`，取消→`Canceled`，新建→`Todo`，暂停→`Backlog`）。
+6. **推荐分支**：
+   - 优先使用 `save_issue` / `get_issue` 返回的 `gitBranchName`
+   - 否则按 `branch.fallback` 生成（slug 用英文或拼音，如 login）
+   - 输出可复制命令：
+
+```
+git fetch origin
+git checkout -b <推荐分支名> origin/main
+# 或已在该分支：git checkout <推荐分支名>
+```
+
+7. **回复格式**（简洁）：
+
+```
+✓ Linear: PM-1「登录功能」→ In Progress
+  链接: <issue.url>
+  推荐分支: pm-1-login
+  git checkout -b pm-1-login
+```
+
+---
+
+## 注意事项
+
+- **必须**通过 Linear MCP 实际操作，不要只口头说「已更新」。
+- 更新前若 MCP 不可用，说明原因并给出手动操作步骤。
+- 用户明确在讨论架构/规划、未涉及具体任务时，不要误触发。
+- 分支仅**推荐**，不自动执行 git 命令，除非用户明确要求创建/切换分支。
