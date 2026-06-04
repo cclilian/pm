@@ -131,6 +131,13 @@ onMounted(loadProjects)
       <el-table-column label="操作" width="100" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" link @click="goToProject(row)">进入</el-button>
+        <el-button
+          type="primary"
+          link
+          @click="router.push({ name: 'project-requirements', params: { id: row.id } })"
+        >
+          需求
+        </el-button>
         </template>
       </el-table-column>
     </el-table>

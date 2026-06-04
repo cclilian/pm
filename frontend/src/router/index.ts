@@ -5,6 +5,7 @@ import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import ProjectListView from '@/views/ProjectListView.vue'
 import ProjectDetailView from '@/views/ProjectDetailView.vue'
+import RequirementListView from '@/views/RequirementListView.vue'
 import UserListView from '@/views/UserListView.vue'
 
 const router = createRouter({
@@ -32,6 +33,12 @@ const router = createRouter({
           name: 'projects',
           component: ProjectListView,
           meta: { title: '项目列表', requiresAuth: true },
+        },
+        {
+          path: 'projects/:id/requirements',
+          name: 'project-requirements',
+          component: RequirementListView,
+          meta: { title: '需求管理', requiresAuth: true },
         },
         {
           path: 'projects/:id',
