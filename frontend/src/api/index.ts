@@ -7,7 +7,7 @@ import { TOKEN_STORAGE_KEY, useAuthStore } from '@/stores/auth'
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
   if (token) {
-    config.headers.Authorization = 'Bearer ' + token
+    config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
