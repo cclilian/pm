@@ -2,26 +2,22 @@ import type { Router } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
 
-const PROTECTED_PREFIXES = ['/projects', '/settings']
-
-function requiresAuth(path: string) {
-  return PROTECTED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
-}
+const PUBLIC_PATHS = new Set(['/login'])
 
 export function setupRouterGuards(router: Router) {
   router.beforeEach(async (to) => {
     const authStore = useAuthStore()
 
-    if (authStore.token && !authStore.user && !authStore.loading) {
+    if (authStore.token && !authStore.user) {
       await authStore.fetchCurrentUser()
     }
 
     if (to.path === '/login' && authStore.isAuthenticated) {
-      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/projects'
-      return redirect.startsWith('/') ? redirect : '/projects'
+      const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/'
+      return redirect.startsWith('/') ? redirect : '/'
     }
 
-    if (requiresAuth(to.path) && !authStore.isAuthenticated) {
+    if (!PUBLIC_PATHS.has(to.path) && !authStore.isAuthenticated) {
       return {
         path: '/login',
         query: { redirect: to.fullPath },

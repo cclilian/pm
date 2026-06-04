@@ -36,15 +36,13 @@ function statusTag(type: 'loading' | 'ok' | 'error') {
 </script>
 
 <template>
-  <div class="home">
-    <el-card shadow="hover">
-      <template #header>
-        <div class="card-header">
-          <span>PM 软件集成项目管理平台</span>
-          <el-tag type="info">Phase 1 脚手架</el-tag>
-        </div>
-      </template>
+  <div class="page-container">
+    <div class="page-header">
+      <h2 class="page-title">工作台</h2>
+      <el-tag type="info">Phase 1</el-tag>
+    </div>
 
+    <el-card shadow="never">
       <p class="desc">Vue3 + FastAPI + MySQL 脚手架已就绪。</p>
 
       <el-descriptions :column="1" border>
@@ -76,20 +74,6 @@ function statusTag(type: 'loading' | 'ok' | 'error') {
 </template>
 
 <style scoped>
-.home {
-  max-width: 720px;
-  margin: 48px auto;
-  padding: 0 16px;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .desc {
   margin: 0 0 20px;
   color: #606266;

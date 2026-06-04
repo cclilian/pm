@@ -26,7 +26,7 @@ const rules: FormRules = {
 
 function resolveRedirectPath() {
   const redirect = route.query.redirect
-  return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/projects'
+  return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'
 }
 
 async function handleSubmit() {
@@ -118,7 +118,7 @@ onMounted(async () => {
 
 <style scoped>
 .login-page {
-  min-height: calc(100vh - 56px);
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
