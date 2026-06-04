@@ -194,8 +194,13 @@ onMounted(async () => {
         <el-button link @click="router.push({ name: 'projects' })">← 返回列表</el-button>
         <h2 class="page-title">{{ project?.name ?? '项目详情' }}</h2>
       </div>
-      <p v-if="project?.description" class="project-desc">{{ project.description }}</p>
+      <div class="header-actions">
+        <el-button type="primary" @click="router.push({ name: 'project-requirements', params: { id: projectId } })">
+          需求管理
+        </el-button>
+      </div>
     </div>
+    <p v-if="project?.description" class="project-desc">{{ project.description }}</p>
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="成员管理" name="members">
@@ -285,10 +290,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.page-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .title-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .project-desc {

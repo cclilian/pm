@@ -109,8 +109,11 @@ export type {
   RequirementCreatePayload,
   RequirementListParams,
   RequirementListResponse,
+  RequirementPriority,
+  RequirementStatus,
   RequirementTreeListResponse,
   RequirementTreeNode,
+  RequirementType,
   RequirementUpdatePayload,
 } from '@/api/types/requirement'
 

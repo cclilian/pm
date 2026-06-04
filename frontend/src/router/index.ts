@@ -35,16 +35,16 @@ const router = createRouter({
           meta: { title: '项目列表', requiresAuth: true },
         },
         {
-          path: 'projects/:id/requirements',
-          name: 'project-requirements',
-          component: RequirementListView,
-          meta: { title: '需求管理', requiresAuth: true },
-        },
-        {
           path: 'projects/:id',
           name: 'project-detail',
           component: ProjectDetailView,
           meta: { title: '项目详情', requiresAuth: true },
+        },
+        {
+          path: 'projects/:id/requirements',
+          name: 'project-requirements',
+          component: RequirementListView,
+          meta: { title: '需求管理', requiresAuth: true },
         },
         {
           path: 'settings/users',

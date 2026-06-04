@@ -8,15 +8,12 @@ import {
   fetchRequirements,
   REQUIREMENT_PRIORITY_LABELS,
   REQUIREMENT_STATUS_LABELS,
-  REQUIREMENT_TYPE_LABELS,
+  type RequirementPriority,
+  type RequirementStatus,
+  type RequirementTreeNode,
+  type RequirementType,
 } from '@/api/requirements'
 import type { Project } from '@/api/types/project'
-import type {
-  RequirementPriority,
-  RequirementStatus,
-  RequirementTreeNode,
-  RequirementType,
-} from '@/api/types/requirement'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,15 +30,16 @@ const total = ref(0)
 const drawerVisible = ref(false)
 const selectedRequirement = ref<RequirementTreeNode | null>(null)
 
-const statusTagType: Record<RequirementStatus, 'info' | 'success' | 'warning' | 'danger'> = {
-  draft: 'info',
-  active: 'success',
-  done: 'success',
-  cancelled: 'danger',
-}
+const tableRef = ref<{ toggleRowExpansion: (row: RequirementTreeNode, expanded?: boolean) => void }>()
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN')
+const statusTagType = (status: RequirementStatus) => {
+  const map: Record<RequirementStatus, 'info' | 'success' | 'warning' | 'danger'> = {
+    draft: 'info',
+    active: 'warning',
+    done: 'success',
+    cancelled: 'danger',
+  }
+  return map[status]
 }
 
 async function loadProject() {
@@ -72,22 +70,39 @@ async function loadRequirements() {
   }
 }
 
-function openDetail(row: RequirementTreeNode) {
+function handleRowClick(row: RequirementTreeNode) {
   selectedRequirement.value = row
   drawerVisible.value = true
 }
 
-function handleTabChange() {
-  loadRequirements()
+function expandAll() {
+  const expand = (nodes: RequirementTreeNode[]) => {
+    for (const node of nodes) {
+      tableRef.value?.toggleRowExpansion(node, true)
+      if (node.children?.length) {
+        expand(node.children)
+      }
+    }
+  }
+  expand(treeData.value)
 }
 
-watch(projectId, async (id) => {
-  if (!Number.isFinite(id) || id <= 0) {
-    router.push({ name: 'projects' })
-    return
+function collapseAll() {
+  const collapse = (nodes: RequirementTreeNode[]) => {
+    for (const node of nodes) {
+      tableRef.value?.toggleRowExpansion(node, false)
+      if (node.children?.length) {
+        collapse(node.children)
+      }
+    }
   }
-  await loadProject()
-  await loadRequirements()
+  collapse(treeData.value)
+}
+
+watch(activeType, () => {
+  drawerVisible.value = false
+  selectedRequirement.value = null
+  loadRequirements()
 })
 
 onMounted(async () => {
@@ -103,77 +118,68 @@ onMounted(async () => {
 <template>
   <div v-loading="projectLoading" class="page-container">
     <div class="page-header">
-      <div class="title-row">
+      <div class="title-block">
         <el-button link @click="router.push({ name: 'project-detail', params: { id: projectId } })">
           ← 返回项目
         </el-button>
         <h2 class="page-title">{{ project?.name ?? '项目' }} · 需求管理</h2>
       </div>
+      <div class="toolbar">
+        <el-button @click="collapseAll">全部折叠</el-button>
+        <el-button @click="expandAll">全部展开</el-button>
+        <el-button @click="loadRequirements">刷新</el-button>
+      </div>
     </div>
 
-    <el-tabs v-model="activeType" @tab-change="handleTabChange">
-      <el-tab-pane
-        :label="REQUIREMENT_TYPE_LABELS.core"
-        name="core"
-      />
-      <el-tab-pane
-        :label="REQUIREMENT_TYPE_LABELS.non_core"
-        name="non_core"
-      />
+    <el-tabs v-model="activeType" class="type-tabs">
+      <el-tab-pane label="核心业务" name="core" />
+      <el-tab-pane label="非核心业务" name="non_core" />
     </el-tabs>
 
-    <div class="tab-toolbar">
-      <span class="list-count">共 {{ total }} 条{{ REQUIREMENT_TYPE_LABELS[activeType] }}需求</span>
-      <el-button @click="loadRequirements">刷新</el-button>
-    </div>
+    <div class="list-meta">共 {{ total }} 条需求（含子级）</div>
 
     <el-table
+      ref="tableRef"
       v-loading="listLoading"
       :data="treeData"
       row-key="id"
-      default-expand-all
       stripe
       border
+      highlight-current-row
       :tree-props="{ children: 'children' }"
       class="requirement-table"
-      @row-click="openDetail"
+      @row-click="handleRowClick"
     >
       <el-table-column prop="title" label="需求标题" min-width="240" show-overflow-tooltip />
       <el-table-column label="优先级" width="90">
         <template #default="{ row }">
-          <span v-if="row.priority">
-            {{ REQUIREMENT_PRIORITY_LABELS[row.priority as RequirementPriority] }}
-          </span>
-          <span v-else class="muted">—</span>
+          {{
+            row.priority
+              ? REQUIREMENT_PRIORITY_LABELS[row.priority as RequirementPriority]
+              : '—'
+          }}
         </template>
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="statusTagType[row.status as RequirementStatus]" size="small">
+          <el-tag :type="statusTagType(row.status as RequirementStatus)" size="small">
             {{ REQUIREMENT_STATUS_LABELS[row.status as RequirementStatus] }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="负责人" width="120">
+      <el-table-column label="负责人" min-width="120">
         <template #default="{ row }">
           {{ row.owner?.display_name ?? '—' }}
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" min-width="170">
+      <el-table-column label="描述" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
-          {{ formatTime(row.updated_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="80" fixed="right">
-        <template #default="{ row }">
-          <el-button type="primary" link @click.stop="openDetail(row)">详情</el-button>
+          {{ row.description || '—' }}
         </template>
       </el-table-column>
     </el-table>
 
-    <el-empty v-if="!listLoading && treeData.length === 0" description="暂无需求">
-      <p class="empty-hint">可在详情抽屉中创建需求（PM-4.3）</p>
-    </el-empty>
+    <el-empty v-if="!listLoading && treeData.length === 0" description="该分类下暂无需求" />
 
     <el-drawer
       v-model="drawerVisible"
@@ -183,11 +189,11 @@ onMounted(async () => {
     >
       <template v-if="selectedRequirement">
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="类型">
-            {{ REQUIREMENT_TYPE_LABELS[selectedRequirement.type] }}
-          </el-descriptions-item>
+          <el-descriptions-item label="ID">{{ selectedRequirement.id }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            {{ REQUIREMENT_STATUS_LABELS[selectedRequirement.status] }}
+            <el-tag :type="statusTagType(selectedRequirement.status)" size="small">
+              {{ REQUIREMENT_STATUS_LABELS[selectedRequirement.status] }}
+            </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="优先级">
             {{
@@ -203,43 +209,38 @@ onMounted(async () => {
             {{ selectedRequirement.description || '—' }}
           </el-descriptions-item>
         </el-descriptions>
-        <p class="drawer-hint">完整编辑、子需求与取消功能将在 PM-4.3 实现。</p>
+        <p class="drawer-hint">完整编辑、子需求与拆解功能将在 PM-4.3 实现。</p>
       </template>
     </el-drawer>
   </div>
 </template>
 
 <style scoped>
-.title-row {
+.title-block {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
-.tab-toolbar {
+.toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 12px;
 }
 
-.list-count {
+.type-tabs {
+  margin-bottom: 8px;
+}
+
+.list-meta {
+  margin-bottom: 12px;
   color: #909399;
   font-size: 13px;
 }
 
 .requirement-table :deep(.el-table__row) {
   cursor: pointer;
-}
-
-.muted {
-  color: #c0c4cc;
-}
-
-.empty-hint {
-  margin: 0;
-  color: #909399;
-  font-size: 13px;
 }
 
 .drawer-hint {
