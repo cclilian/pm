@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import * as projectsApi from '@/api/projects'
@@ -8,11 +8,14 @@ import {
   fetchRequirements,
   REQUIREMENT_PRIORITY_LABELS,
   REQUIREMENT_STATUS_LABELS,
+  type Requirement,
   type RequirementPriority,
   type RequirementStatus,
   type RequirementTreeNode,
   type RequirementType,
 } from '@/api/requirements'
+import RequirementDetailDrawer from '@/components/requirements/RequirementDetailDrawer.vue'
+import type { DrawerMode } from '@/components/requirements/RequirementDetailDrawer.vue'
 import type { Project } from '@/api/types/project'
 
 const route = useRoute()
@@ -25,10 +28,13 @@ const projectLoading = ref(false)
 const listLoading = ref(false)
 const project = ref<Project | null>(null)
 const treeData = ref<RequirementTreeNode[]>([])
+const allFlatRequirements = ref<Requirement[]>([])
 const total = ref(0)
 
 const drawerVisible = ref(false)
-const selectedRequirement = ref<RequirementTreeNode | null>(null)
+const drawerMode = ref<DrawerMode>('view')
+const selectedRequirementId = ref<number | null>(null)
+const createParentId = ref<number | null>(null)
 
 const tableRef = ref<{ toggleRowExpansion: (row: RequirementTreeNode, expanded?: boolean) => void }>()
 
@@ -54,15 +60,27 @@ async function loadProject() {
   }
 }
 
+async function loadAllRequirements() {
+  try {
+    const result = await fetchRequirements(projectId.value)
+    allFlatRequirements.value = result.items
+  } catch {
+    allFlatRequirements.value = []
+  }
+}
+
 async function loadRequirements() {
   listLoading.value = true
   try {
-    const result = await fetchRequirements(projectId.value, {
-      tree: true,
-      type: activeType.value,
-    })
-    treeData.value = result.items
-    total.value = result.total
+    const [treeResult] = await Promise.all([
+      fetchRequirements(projectId.value, {
+        tree: true,
+        type: activeType.value,
+      }),
+      loadAllRequirements(),
+    ])
+    treeData.value = treeResult.items
+    total.value = treeResult.total
   } catch {
     ElMessage.error('加载需求列表失败')
   } finally {
@@ -70,9 +88,31 @@ async function loadRequirements() {
   }
 }
 
-function handleRowClick(row: RequirementTreeNode) {
-  selectedRequirement.value = row
+function openViewDrawer(requirementId: number) {
+  drawerMode.value = 'view'
+  selectedRequirementId.value = requirementId
+  createParentId.value = null
   drawerVisible.value = true
+}
+
+function openCreateDrawer(parentId: number | null = null) {
+  drawerMode.value = 'create'
+  selectedRequirementId.value = null
+  createParentId.value = parentId
+  drawerVisible.value = true
+}
+
+function handleRowClick(row: RequirementTreeNode) {
+  openViewDrawer(row.id)
+}
+
+function handleAddSubRequirement(parentId: number) {
+  drawerVisible.value = false
+  nextTick(() => openCreateDrawer(parentId))
+}
+
+function handleDrawerSaved() {
+  loadRequirements()
 }
 
 function expandAll() {
@@ -101,7 +141,8 @@ function collapseAll() {
 
 watch(activeType, () => {
   drawerVisible.value = false
-  selectedRequirement.value = null
+  selectedRequirementId.value = null
+  createParentId.value = null
   loadRequirements()
 })
 
@@ -125,6 +166,7 @@ onMounted(async () => {
         <h2 class="page-title">{{ project?.name ?? '项目' }} · 需求管理</h2>
       </div>
       <div class="toolbar">
+        <el-button type="primary" @click="openCreateDrawer()">新建需求</el-button>
         <el-button @click="collapseAll">全部折叠</el-button>
         <el-button @click="expandAll">全部展开</el-button>
         <el-button @click="loadRequirements">刷新</el-button>
@@ -179,39 +221,21 @@ onMounted(async () => {
       </el-table-column>
     </el-table>
 
-    <el-empty v-if="!listLoading && treeData.length === 0" description="该分类下暂无需求" />
+    <el-empty v-if="!listLoading && treeData.length === 0" description="该分类下暂无需求">
+      <el-button type="primary" @click="openCreateDrawer()">新建需求</el-button>
+    </el-empty>
 
-    <el-drawer
+    <RequirementDetailDrawer
       v-model="drawerVisible"
-      :title="selectedRequirement?.title ?? '需求详情'"
-      size="480px"
-      destroy-on-close
-    >
-      <template v-if="selectedRequirement">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="ID">{{ selectedRequirement.id }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="statusTagType(selectedRequirement.status)" size="small">
-              {{ REQUIREMENT_STATUS_LABELS[selectedRequirement.status] }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="优先级">
-            {{
-              selectedRequirement.priority
-                ? REQUIREMENT_PRIORITY_LABELS[selectedRequirement.priority]
-                : '—'
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="负责人">
-            {{ selectedRequirement.owner?.display_name ?? '—' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="描述">
-            {{ selectedRequirement.description || '—' }}
-          </el-descriptions-item>
-        </el-descriptions>
-        <p class="drawer-hint">完整编辑、子需求与拆解功能将在 PM-4.3 实现。</p>
-      </template>
-    </el-drawer>
+      :project-id="projectId"
+      :mode="drawerMode"
+      :requirement-id="selectedRequirementId"
+      :parent-id="createParentId"
+      :default-type="activeType"
+      :flat-requirements="allFlatRequirements"
+      @saved="handleDrawerSaved"
+      @add-sub="handleAddSubRequirement"
+    />
   </div>
 </template>
 
@@ -227,6 +251,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .type-tabs {
@@ -241,12 +266,5 @@ onMounted(async () => {
 
 .requirement-table :deep(.el-table__row) {
   cursor: pointer;
-}
-
-.drawer-hint {
-  margin-top: 16px;
-  color: #909399;
-  font-size: 13px;
-  line-height: 1.6;
 }
 </style>
