@@ -1,0 +1,56 @@
+---
+description: 涉及 GitHub 远程仓库操作时，优先使用 GitHub MCP（user-github），而非本地 git/gh CLI
+alwaysApply: true
+---
+
+# GitHub 操作优先 MCP
+
+## 何时触发
+
+用户提到 **GitHub 上**、**推送到远程**、**合并 PR**、**创建 PR**、**同步到 GitHub**、**清理远程分支** 等涉及 **远程仓库 `cclilian/pm`** 的操作时，**优先使用 GitHub MCP**（`user-github`），不要默认走本地 `git push` / `gh`。
+
+## 仓库配置
+
+```yaml
+owner: cclilian
+repo: pm
+default_branch: main
+mcp_server: user-github
+```
+
+## 执行原则
+
+1. **先查 MCP 工具**：调用前阅读 `mcps/user-github/tools/*.json` 确认参数。
+2. **必须实际调用 MCP**：不要只口头说「已推送/已合并」，要通过 MCP 完成或说明 MCP 不支持。
+3. **本地 git 的定位**：仅用于查看状态（`git status`、`git log`、`git diff`）、本地分支切换、与远程对比；**推送/PR/合并等写远程的操作优先 MCP**。
+4. **MCP 不可用或缺工具时**：说明具体原因，再降级为 `git` / `gh`，并告知用户。
+
+## 常见操作 → MCP 工具映射
+
+| 用户意图 | 优先 MCP 工具 |
+|----------|---------------|
+| 创建 PR | `create_pull_request` |
+| 合并 PR | `merge_pull_request` |
+| 查看/列出 PR | `list_pull_requests`、`get_pull_request` |
+| 推送文件到分支 | `push_files`、`create_or_update_file` |
+| 创建远程分支 | `create_branch` |
+| 查看远程提交 | `list_commits` |
+| 读远程文件 | `get_file_contents` |
+| 创建/更新 Issue | `create_issue`、`update_issue` |
+
+## MCP 暂不支持时的降级
+
+当前 **无** `delete_branch` 等删除 ref 工具。清理远程分支时：
+
+1. 先用 MCP 确认分支/PR 状态（如 `list_commits`、`get_pull_request`）。
+2. 若 PR 已合并，告知用户 MCP 无法删分支。
+3. 再建议本机执行 `git push origin --delete <branch>`，或 GitHub 网页删除。
+
+## 回复格式（简洁）
+
+```
+✓ GitHub MCP: <操作摘要>
+  链接: <PR / commit / issue URL>
+```
+
+若降级到本地 git，需明确标注：**「MCP 不支持 xxx，已改用 git」**。
