@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { fetchDbHealth, fetchHealth } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const apiStatus = ref<'loading' | 'ok' | 'error'>('loading')
 const dbStatus = ref<'loading' | 'ok' | 'error'>('loading')
 const errorMessage = ref('')
@@ -51,6 +53,13 @@ function statusTag(type: 'loading' | 'ok' | 'error') {
         </el-descriptions-item>
         <el-descriptions-item label="MySQL">
           <el-tag v-bind="statusTag(dbStatus)">{{ statusTag(dbStatus).label }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="登录态">
+          <el-tag v-if="authStore.loading" effect="plain">恢复中</el-tag>
+          <el-tag v-else-if="authStore.isAuthenticated" type="success">
+            {{ authStore.user?.display_name }}（{{ authStore.user?.username }}）
+          </el-tag>
+          <el-tag v-else type="info">未登录</el-tag>
         </el-descriptions-item>
       </el-descriptions>
 
