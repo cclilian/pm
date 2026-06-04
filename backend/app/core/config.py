@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     cors_origins: str = "http://localhost:5173"
+    jwt_secret: str = "change-me-in-production"
+    jwt_expire_minutes: int = 480
+    jwt_algorithm: str = "HS256"
 
     @property
     def cors_origin_list(self) -> List[str]:
