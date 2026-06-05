@@ -13,11 +13,22 @@ import type {
   RequirementListParams,
   RequirementListResponse,
   RequirementTreeListResponse,
+  RequirementTreeNode,
   RequirementUpdatePayload,
 } from '@/api/types/requirement'
 
-/** PM-4.7 联调完成后改为 false */
-export const USE_MOCK_REQUIREMENTS = true
+/** PM-4.7：需求模块已联调，使用真实 API */
+export const USE_MOCK_REQUIREMENTS = false
+
+function stripEmptyChildren(nodes: RequirementTreeNode[]): RequirementTreeNode[] {
+  return nodes.map((node) => {
+    if (node.children && node.children.length > 0) {
+      return { ...node, children: stripEmptyChildren(node.children) }
+    }
+    const { children: _children, ...rest } = node
+    return rest
+  })
+}
 
 export async function fetchRequirements(
   projectId: number,
@@ -39,6 +50,12 @@ export async function fetchRequirements(
     `/projects/${projectId}/requirements`,
     { params },
   )
+  if (params?.tree) {
+    return {
+      ...data,
+      items: stripEmptyChildren(data.items as RequirementTreeNode[]),
+    }
+  }
   return data
 }
 

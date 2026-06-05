@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { computed, reactive, ref, watch } from 'vue'
@@ -110,6 +111,31 @@ const typeOptions = (Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]).
   value,
   label: REQUIREMENT_TYPE_LABELS[value],
 }))
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail
+    if (typeof detail === 'string') {
+      if (detail === 'Invalid parent_id: cycle detected') {
+        return '父需求无效：存在循环引用'
+      }
+      if (detail === 'Requirement already cancelled') {
+        return '该需求已取消'
+      }
+      if (detail === 'Parent requirement not found') {
+        return '父需求不存在'
+      }
+      if (detail === 'Requirement not found') {
+        return '需求不存在'
+      }
+      if (detail === 'Not allowed to access this project') {
+        return '无权访问该项目'
+      }
+      return detail
+    }
+  }
+  return fallback
+}
 
 function resetFormFromRequirement(item: Requirement) {
   form.title = item.title
@@ -231,8 +257,7 @@ async function handleSubmit() {
     ElMessage.success('需求已更新')
     emit('saved')
   } catch (error) {
-    const message = error instanceof Error ? error.message : '保存失败'
-    ElMessage.error(message)
+    ElMessage.error(getErrorMessage(error, '保存失败'))
   } finally {
     submitting.value = false
   }
@@ -258,8 +283,7 @@ async function handleCancel() {
     ElMessage.success('需求已取消')
     emit('saved')
   } catch (error) {
-    const message = error instanceof Error ? error.message : '取消失败'
-    ElMessage.error(message)
+    ElMessage.error(getErrorMessage(error, '取消失败'))
   } finally {
     submitting.value = false
   }
