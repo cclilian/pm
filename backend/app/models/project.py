@@ -12,6 +12,7 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.project_member import ProjectMember
     from app.models.requirement import Requirement
+    from app.models.task import Task
     from app.models.user import User
 
 
@@ -55,6 +56,11 @@ class Project(Base):
     )
     requirements: Mapped[List[Requirement]] = relationship(
         "Requirement",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    tasks: Mapped[List[Task]] = relationship(
+        "Task",
         back_populates="project",
         cascade="all, delete-orphan",
     )

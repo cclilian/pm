@@ -8,7 +8,6 @@ import {
   cancelRequirement,
   createRequirement,
   fetchRequirement,
-  isRequirementLeaf,
   REQUIREMENT_PRIORITY_LABELS,
   REQUIREMENT_STATUS_LABELS,
   REQUIREMENT_TYPE_LABELS,
@@ -20,6 +19,7 @@ import {
 } from '@/api/requirements'
 import type { User } from '@/api/types/user'
 import * as usersApi from '@/api/users'
+import RequirementTaskTree from '@/components/requirements/RequirementTaskTree.vue'
 
 export type DrawerMode = 'view' | 'edit' | 'create'
 
@@ -88,16 +88,6 @@ const drawerTitle = computed(() => {
 
 const isCancelled = computed(() => requirement.value?.status === 'cancelled')
 
-const isLeaf = computed(() => {
-  if (!requirement.value) return false
-  if (props.mode === 'create') return false
-  return isRequirementLeaf(requirement.value.id, props.flatRequirements)
-})
-
-const canDecompose = computed(
-  () => internalMode.value === 'view' && isLeaf.value && !isCancelled.value,
-)
-
 const statusOptions = (['draft', 'active', 'done'] as RequirementStatus[]).map((value) => ({
   value,
   label: REQUIREMENT_STATUS_LABELS[value],
@@ -111,6 +101,16 @@ const typeOptions = (Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]).
   value,
   label: REQUIREMENT_TYPE_LABELS[value],
 }))
+
+const statusTagType = (status: RequirementStatus) => {
+  const map: Record<RequirementStatus, 'info' | 'success' | 'warning' | 'danger'> = {
+    draft: 'info',
+    active: 'warning',
+    done: 'success',
+    cancelled: 'danger',
+  }
+  return map[status]
+}
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError(error)) {
@@ -289,10 +289,6 @@ async function handleCancel() {
   }
 }
 
-function handleDecomposePlaceholder() {
-  ElMessage.info('拆解为任务功能将在 PM-4.13 实现')
-}
-
 watch(
   () => [props.modelValue, props.requirementId, props.mode, props.parentId] as const,
   ([open]) => {
@@ -308,71 +304,54 @@ defineExpose({
 </script>
 
 <template>
-  <el-drawer v-model="visible" :title="drawerTitle" size="520px" destroy-on-close>
-    <div v-loading="loading">
+  <el-drawer v-model="visible" :title="drawerTitle" size="640px" destroy-on-close class="requirement-drawer">
+    <div v-loading="loading" class="drawer-body">
       <template v-if="internalMode === 'view' && requirement">
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="类型">
-            {{ REQUIREMENT_TYPE_LABELS[requirement.type] }}
-          </el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag
-              :type="
-                requirement.status === 'cancelled'
-                  ? 'danger'
-                  : requirement.status === 'done'
-                    ? 'success'
-                    : requirement.status === 'active'
-                      ? 'warning'
-                      : 'info'
-              "
-              size="small"
-            >
-              {{ REQUIREMENT_STATUS_LABELS[requirement.status] }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="优先级">
-            {{ requirement.priority ? REQUIREMENT_PRIORITY_LABELS[requirement.priority] : '—' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="负责人">
-            {{ requirement.owner?.display_name ?? '—' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="描述">
-            {{ requirement.description || '—' }}
-          </el-descriptions-item>
-          <el-descriptions-item v-if="requirement.cancelled_at" label="取消时间">
-            {{ new Date(requirement.cancelled_at).toLocaleString('zh-CN') }}
-          </el-descriptions-item>
-          <el-descriptions-item v-if="requirement.cancel_reason" label="取消原因">
-            {{ requirement.cancel_reason }}
-          </el-descriptions-item>
-        </el-descriptions>
+        <section class="drawer-section">
+          <div class="section-header">
+            <span class="section-title">基本信息</span>
+          </div>
+          <el-descriptions :column="1" border label-width="90px" class="info-descriptions">
+            <el-descriptions-item label="类型">
+              <el-tag :type="requirement.type === 'core' ? 'primary' : 'info'" size="small">
+                {{ REQUIREMENT_TYPE_LABELS[requirement.type] }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="状态">
+              <el-tag :type="statusTagType(requirement.status)" size="small">
+                {{ REQUIREMENT_STATUS_LABELS[requirement.status] }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="优先级">
+              {{ requirement.priority ? REQUIREMENT_PRIORITY_LABELS[requirement.priority] : '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="负责人">
+              {{ requirement.owner?.display_name ?? '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="描述">
+              <span class="description-text">{{ requirement.description || '—' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item v-if="requirement.cancelled_at" label="取消时间">
+              {{ new Date(requirement.cancelled_at).toLocaleString('zh-CN') }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="requirement.cancel_reason" label="取消原因">
+              <span class="description-text">{{ requirement.cancel_reason }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </section>
 
-        <div class="drawer-actions">
-          <el-button v-if="!isCancelled" type="primary" @click="switchToEdit">编辑</el-button>
-          <el-button v-if="!isCancelled" @click="emit('add-sub', requirement.id)">
-            添加子需求
-          </el-button>
-          <el-tooltip
-            v-if="!canDecompose && !isCancelled && !isLeaf"
-            content="存在子需求时不可拆解，请先在末节点上操作"
-            placement="top"
-          >
-            <span>
-              <el-button disabled>拆解为任务</el-button>
-            </span>
-          </el-tooltip>
-          <el-button v-if="canDecompose" type="success" @click="handleDecomposePlaceholder">
-            拆解为任务
-          </el-button>
-          <el-button v-if="!isCancelled" type="danger" plain @click="openCancelDialog">
-            取消需求
-          </el-button>
+        <div class="sub-requirement-actions">
+          <el-button @click="emit('add-sub', requirement.id)">添加子需求</el-button>
         </div>
+
+        <RequirementTaskTree
+          :project-id="projectId"
+          :requirement-id="requirement.id"
+        />
       </template>
 
       <template v-else-if="internalMode === 'edit' || internalMode === 'create'">
-        <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px">
+        <el-form ref="formRef" :model="form" :rules="formRules" label-width="90px" class="drawer-form">
           <el-form-item label="标题" prop="title">
             <el-input v-model="form.title" maxlength="200" show-word-limit />
           </el-form-item>
@@ -427,17 +406,26 @@ defineExpose({
             <el-input v-model="form.description" type="textarea" :rows="4" />
           </el-form-item>
         </el-form>
-
-        <div class="drawer-actions">
-          <el-button @click="internalMode === 'create' ? (visible = false) : switchToView()">
-            取消
-          </el-button>
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">
-            {{ internalMode === 'create' ? '创建' : '保存' }}
-          </el-button>
-        </div>
       </template>
     </div>
+
+    <template v-if="internalMode === 'view' && requirement && !isCancelled" #footer>
+      <div class="drawer-footer">
+        <el-button type="primary" link @click="switchToEdit">编辑</el-button>
+        <el-button type="danger" link @click="openCancelDialog">取消需求</el-button>
+      </div>
+    </template>
+
+    <template v-else-if="internalMode === 'edit' || internalMode === 'create'" #footer>
+      <div class="drawer-footer">
+        <el-button @click="internalMode === 'create' ? (visible = false) : switchToView()">
+          取消
+        </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">
+          {{ internalMode === 'create' ? '创建' : '保存' }}
+        </el-button>
+      </div>
+    </template>
 
     <el-dialog v-model="cancelVisible" title="取消需求" width="440px" append-to-body destroy-on-close>
       <el-form ref="cancelFormRef" :model="cancelForm" :rules="cancelRules" label-width="90px">
@@ -460,11 +448,50 @@ defineExpose({
 </template>
 
 <style scoped>
-.drawer-actions {
+.drawer-body {
+  padding-bottom: 8px;
+}
+
+.drawer-section {
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.info-descriptions {
+  width: 100%;
+}
+
+.description-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.sub-requirement-actions {
+  padding: 16px 0;
+  border-top: 1px solid #ebeef5;
+}
+
+.drawer-form {
+  max-width: 100%;
+}
+
+.drawer-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 8px;
 }
 
 .cancel-hint {
@@ -472,5 +499,16 @@ defineExpose({
   color: #909399;
   font-size: 12px;
   line-height: 1.5;
+}
+</style>
+
+<style>
+.requirement-drawer .el-drawer__body {
+  padding-top: 0;
+}
+
+.requirement-drawer .el-drawer__footer {
+  border-top: 1px solid #ebeef5;
+  padding: 16px 20px;
 }
 </style>

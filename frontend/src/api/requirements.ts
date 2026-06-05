@@ -135,6 +135,7 @@ export type {
 } from '@/api/types/requirement'
 
 export {
+  getRequirementPath,
   isRequirementLeaf,
   REQUIREMENT_PRIORITY_LABELS,
   REQUIREMENT_STATUS_LABELS,

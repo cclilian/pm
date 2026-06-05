@@ -102,3 +102,29 @@ export function isRequirementLeaf(
 ): boolean {
   return !requirements.some((item) => item.parent_id === requirementId)
 }
+
+/** 从根需求到目标需求的标题路径，如「Root / 子需求 / 末节点」 */
+export function getRequirementPath(
+  requirementId: number,
+  requirements: Requirement[],
+): string {
+  const byId = new Map(requirements.map((item) => [item.id, item]))
+  const segments: string[] = []
+  const visited = new Set<number>()
+
+  let current = byId.get(requirementId)
+  while (current) {
+    if (visited.has(current.id)) {
+      break
+    }
+    visited.add(current.id)
+    segments.unshift(current.title)
+    current =
+      current.parent_id != null ? byId.get(current.parent_id) : undefined
+  }
+
+  if (segments.length === 0) {
+    return `#${requirementId}`
+  }
+  return segments.join(' / ')
+}
