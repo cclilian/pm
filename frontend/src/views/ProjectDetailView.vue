@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import * as projectsApi from '@/api/projects'
 import RequirementTreePanel from '@/components/requirements/RequirementTreePanel.vue'
+import TaskTreePanel from '@/components/tasks/TaskTreePanel.vue'
 import type { Project } from '@/api/types/project'
 import {
   MEMBER_ROLE_LABELS,
@@ -22,7 +23,16 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const projectId = computed(() => Number(route.params.id))
-const activeTab = ref(route.query.tab === 'members' ? 'members' : 'requirements')
+
+type ProjectTab = 'requirements' | 'tasks' | 'members'
+
+function tabFromQuery(tab: unknown): ProjectTab {
+  if (tab === 'members') return 'members'
+  if (tab === 'tasks') return 'tasks'
+  return 'requirements'
+}
+
+const activeTab = ref<ProjectTab>(tabFromQuery(route.query.tab))
 
 const projectLoading = ref(false)
 const membersLoading = ref(false)
@@ -182,14 +192,14 @@ watch(activeTab, (tab) => {
   router.replace({
     name: 'project-detail',
     params: { id: projectId.value },
-    query: tab === 'members' ? { tab: 'members' } : { tab: 'requirements' },
+    query: { tab },
   })
 })
 
 watch(
   () => route.query.tab,
   (tab) => {
-    activeTab.value = tab === 'members' ? 'members' : 'requirements'
+    activeTab.value = tabFromQuery(tab)
   },
 )
 
@@ -216,6 +226,9 @@ onMounted(async () => {
     <el-tabs v-model="activeTab">
       <el-tab-pane label="需求管理" name="requirements">
         <RequirementTreePanel :project-id="projectId" />
+      </el-tab-pane>
+      <el-tab-pane label="任务管理" name="tasks">
+        <TaskTreePanel :project-id="projectId" />
       </el-tab-pane>
       <el-tab-pane label="成员管理" name="members">
         <div class="tab-toolbar">

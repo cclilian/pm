@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -17,7 +17,8 @@ from app.schemas.requirement import (
     RequirementTreeListResponse,
     RequirementUpdate,
 )
-from app.services import requirement_service
+from app.schemas.task import DecomposePayload, TaskResponse
+from app.services import requirement_service, task_service
 from app.services.project_service import ProjectForbiddenError, ProjectNotFoundError
 from app.services.requirement_service import (
     OwnerNotFoundError,
@@ -26,6 +27,7 @@ from app.services.requirement_service import (
     RequirementCycleError,
     RequirementNotFoundError,
 )
+from app.services.task_service import RequirementNotLeafError
 
 router = APIRouter(prefix="/projects/{project_id}/requirements", tags=["requirements"])
 
@@ -221,4 +223,51 @@ def cancel_requirement(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Requirement already cancelled",
+        )
+
+
+@router.post(
+    "/{requirement_id}/decompose",
+    response_model=List[TaskResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+def decompose_requirement(
+    project_id: int,
+    requirement_id: int,
+    data: DecomposePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return task_service.decompose_requirement(
+            db,
+            project_id,
+            requirement_id,
+            current_user.id,
+            data,
+        )
+    except ProjectNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+    except ProjectForbiddenError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not allowed to access this project",
+        )
+    except RequirementNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requirement not found",
+        )
+    except RequirementAlreadyCancelledError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Requirement already cancelled",
+        )
+    except RequirementNotLeafError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Requirement is not a leaf node",
         )

@@ -11,6 +11,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.project import Project
+    from app.models.task import Task
     from app.models.user import User
 
 
@@ -110,4 +111,9 @@ class Requirement(Base):
         "Requirement",
         back_populates="parent",
         foreign_keys=[parent_id],
+    )
+    tasks: Mapped[List[Task]] = relationship(
+        "Task",
+        back_populates="requirement",
+        foreign_keys="Task.requirement_id",
     )
