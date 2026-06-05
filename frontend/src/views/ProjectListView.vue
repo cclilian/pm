@@ -81,8 +81,12 @@ async function handleCreate() {
   }
 }
 
-function goToProject(project: Project) {
-  router.push({ name: 'project-detail', params: { id: project.id } })
+function goToProject(project: Project, tab: 'requirements' | 'members' = 'requirements') {
+  router.push({
+    name: 'project-detail',
+    params: { id: project.id },
+    query: { tab },
+  })
 }
 
 onMounted(loadProjects)
@@ -101,7 +105,7 @@ onMounted(loadProjects)
     <el-table v-if="total > 0 || loading" v-loading="loading" :data="projects" stripe border>
       <el-table-column label="项目名称" min-width="180">
         <template #default="{ row }">
-          <el-button type="primary" link @click="goToProject(row)">
+          <el-button type="primary" link @click="goToProject(row, 'requirements')">
             {{ row.name }}
           </el-button>
         </template>
@@ -128,9 +132,10 @@ onMounted(loadProjects)
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" link @click="goToProject(row)">进入</el-button>
+          <el-button type="primary" link @click="goToProject(row, 'requirements')">需求</el-button>
+          <el-button type="primary" link @click="goToProject(row, 'members')">成员</el-button>
         </template>
       </el-table-column>
     </el-table>

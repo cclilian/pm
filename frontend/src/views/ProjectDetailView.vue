@@ -2,10 +2,11 @@
 import axios from 'axios'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import * as projectsApi from '@/api/projects'
+import RequirementTreePanel from '@/components/requirements/RequirementTreePanel.vue'
 import type { Project } from '@/api/types/project'
 import {
   MEMBER_ROLE_LABELS,
@@ -21,7 +22,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const projectId = computed(() => Number(route.params.id))
-const activeTab = ref('members')
+const activeTab = ref(route.query.tab === 'members' ? 'members' : 'requirements')
 
 const projectLoading = ref(false)
 const membersLoading = ref(false)
@@ -177,6 +178,21 @@ async function handleRemoveMember(member: ProjectMember) {
   }
 }
 
+watch(activeTab, (tab) => {
+  router.replace({
+    name: 'project-detail',
+    params: { id: projectId.value },
+    query: tab === 'members' ? { tab: 'members' } : { tab: 'requirements' },
+  })
+})
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    activeTab.value = tab === 'members' ? 'members' : 'requirements'
+  },
+)
+
 onMounted(async () => {
   if (!Number.isFinite(projectId.value) || projectId.value <= 0) {
     router.push({ name: 'projects' })
@@ -194,10 +210,13 @@ onMounted(async () => {
         <el-button link @click="router.push({ name: 'projects' })">← 返回列表</el-button>
         <h2 class="page-title">{{ project?.name ?? '项目详情' }}</h2>
       </div>
-      <p v-if="project?.description" class="project-desc">{{ project.description }}</p>
     </div>
+    <p v-if="project?.description" class="project-desc">{{ project.description }}</p>
 
     <el-tabs v-model="activeTab">
+      <el-tab-pane label="需求管理" name="requirements">
+        <RequirementTreePanel :project-id="projectId" />
+      </el-tab-pane>
       <el-tab-pane label="成员管理" name="members">
         <div class="tab-toolbar">
           <span class="member-count">共 {{ members.length }} 名成员</span>
@@ -285,14 +304,24 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.page-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .title-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .project-desc {
-  margin: 8px 0 0;
+  margin: 0 0 16px;
   color: #606266;
   font-size: 14px;
 }
